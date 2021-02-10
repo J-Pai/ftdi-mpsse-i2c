@@ -101,6 +101,8 @@ int InitializeI2C() {
   OutputBuffer[dwNumBytesToSend++] = 0x8A; // Disable clock divide-by-5 for 60Mhz master clock
   OutputBuffer[dwNumBytesToSend++] = 0x97; // Ensure adaptive clocking is off
   OutputBuffer[dwNumBytesToSend++] = 0x8C; // Enable 3 phase data clocking, data valid on both clock edges for I2C
+  dwNumBytesSent = ftdi_write_data(&ftdic, OutputBuffer, dwNumBytesToSend);
+  dwNumBytesToSend = 0;
   OutputBuffer[dwNumBytesToSend++] = 0x9E; // Enable drive-zero mode on the lines used for I2C ...
   OutputBuffer[dwNumBytesToSend++] = 0x07; // ... on the bits AD0, 1 and 2 of the lower port...
   OutputBuffer[dwNumBytesToSend++] = 0x00; // ...not required on the upper port AC 0-7
@@ -174,10 +176,6 @@ int SetI2CStop() {
     OutputBuffer[dwNumBytesToSend++] = 0xFF; // both clock and data now high
     OutputBuffer[dwNumBytesToSend++] = 0xFB; // Set pins o/p except bit 2 (data_in)
   }
-  // Turn the LED off by setting port AC6 high.
-  OutputBuffer[dwNumBytesToSend++] = 0x82; // Command to set ACbus direction/data
-  OutputBuffer[dwNumBytesToSend++] = 0xFF; // All lines high (including bit 6 LED)
-  OutputBuffer[dwNumBytesToSend++] = 0x40; // Only bit 6 is output
   //Send off the commands
   dwNumBytesSent = ftdi_write_data(&ftdic, OutputBuffer, dwNumBytesToSend);
   dwNumBytesToSend = 0;
