@@ -224,6 +224,7 @@ int SendByteAndCheckACK(unsigned char dataSend) {
   if(debug) {
     printf("Sent: %d, %02X | Received: %d, %02X\n", dwNumBytesSent, dataSend, dwNumBytesRead, InputBuffer[0]);
   }
+
   return r;
 }
 
@@ -253,7 +254,6 @@ int main(int argc, char *argv[]) {
       break;
   }
   InitializeI2C();
-  SetI2CLinesIdle();
   SetI2CStart();
   s = argv[a];
   b = 0;
