@@ -5,7 +5,7 @@
 struct ftdi_context ftdic;
 unsigned char OutputBuffer[1024]; // Buffer to hold MPSSE commands and data to be sent to FT4232H
 unsigned char InputBuffer[1024];  // Buffer to hold Data unsigned chars to be read from FT4232H
-unsigned int dwClockDivisor = 0x00c8; // 0x00c8; // Value of clock divisor, SCL Frequency = 60/((1+0x0095)*2) (MHz) ~= 400khz
+unsigned int dwClockDivisor = 0x00c8; // 0x00c8; // Value of clock divisor, SCL Frequency = 60/((1+0xc8*3/2)*2) (MHz) ~= 100khz
 unsigned int dwNumBytesToSend = 0; // Index of output buffer
 unsigned int dwNumBytesSent = 0, dwNumBytesRead = 0, dwNumInputBuffer = 0;
 int channel = 0;
