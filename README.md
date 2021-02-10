@@ -1,5 +1,14 @@
 # FTDI MPSSE I2C
 
+## Installation
+
+```
+$ sudo apt install libftdi-dev
+$ make
+$ ./i2c
+```
+
+
 ## Credits
 
 * https://github.com/OriIdan/ftdi-i2c
