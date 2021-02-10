@@ -5,35 +5,11 @@
 struct ftdi_context ftdic;
 unsigned char OutputBuffer[1024]; // Buffer to hold MPSSE commands and data to be sent to FT4232H
 unsigned char InputBuffer[1024];  // Buffer to hold Data unsigned chars to be read from FT4232H
-unsigned int dwClockDivisor = 0x0095; // Value of clock divisor, SCL Frequency = 60/((1+0x0095)*2) (MHz) = 200khz
+unsigned int dwClockDivisor = 0x00c8; // Value of clock divisor, SCL Frequency = 60/((1+0x0032)*2) (MHz) ~= 400khz
 unsigned int dwNumBytesToSend = 0; // Index of output buffer
 unsigned int dwNumBytesSent = 0, dwNumBytesRead = 0, dwNumInputBuffer = 0;
 int channel = 0;
 int debug = 1;	// Debug mode
-
-int SetI2CLinesIdle() {
-  dwNumBytesToSend = 0; //Clear output buffer
-  // Set the idle states for the AD lines
-  OutputBuffer[dwNumBytesToSend++] = 0x80; // Command to set ADbus direction and data
-  OutputBuffer[dwNumBytesToSend++] = 0xFF; // Set all 8 lines to high level
-  OutputBuffer[dwNumBytesToSend++] = 0xFB; // Set all pins as o/p except bit 2 (data_in)
-  // IDLE line states are ...
-  // AD0 (SCL) is output high (open drain, pulled up externally)
-  // AD1 (DATA OUT) is output high (open drain, pulled up externally)
-  // AD2 (DATA IN) is input (therefore the output value specified is ignored)
-  // AD3 to AD7 are inputs (not used in this application)
-  // Set the idle states for the AC lines
-  OutputBuffer[dwNumBytesToSend++] = 0x82; // Command to set ACbus direction and data
-  OutputBuffer[dwNumBytesToSend++] = 0xFF; // Set all 8 lines to high level
-  OutputBuffer[dwNumBytesToSend++] = 0x40; // Only bit 6 is output
-  // IDLE line states are ...
-  // AC6 (LED) is output driving high
-  // AC0/1/2/3/4/5/7 are inputs (not used in this application)
-  //Send off the commands
-  dwNumBytesSent = ftdi_write_data(&ftdic, OutputBuffer, dwNumBytesToSend);
-  dwNumBytesToSend = 0;
-  return 0;
-}
 
 int InitializeI2C() {
   unsigned int dwCount;
@@ -103,10 +79,10 @@ int InitializeI2C() {
   OutputBuffer[dwNumBytesToSend++] = 0x8C; // Enable 3 phase data clocking, data valid on both clock edges for I2C
   dwNumBytesSent = ftdi_write_data(&ftdic, OutputBuffer, dwNumBytesToSend);
   dwNumBytesToSend = 0;
-  OutputBuffer[dwNumBytesToSend++] = 0x9E; // Enable drive-zero mode on the lines used for I2C ...
-  OutputBuffer[dwNumBytesToSend++] = 0x07; // ... on the bits AD0, 1 and 2 of the lower port...
-  OutputBuffer[dwNumBytesToSend++] = 0x00; // ...not required on the upper port AC 0-7
   OutputBuffer[dwNumBytesToSend++] = 0x85; // Ensure internal loopback is off
+  OutputBuffer[dwNumBytesToSend++] = 0x80; //Command to set directions of lower 8 pins and force value on bits set as output
+  OutputBuffer[dwNumBytesToSend++] = 0x03; //Set SDA, SCL high, WP disabled by SK, DO at bit ‘1’, GPIOL0 at bit ‘0’
+  OutputBuffer[dwNumBytesToSend++] = 0x13; //Set SK,DO,GPIOL0 pins as output with bit ’, other pins as input with bit ‘’
   dwNumBytesSent = ftdi_write_data(&ftdic, OutputBuffer, dwNumBytesToSend);
   dwNumBytesToSend = 0;
   // Clear index to zero
@@ -119,8 +95,6 @@ int InitializeI2C() {
   dwNumBytesSent = ftdi_write_data(&ftdic, OutputBuffer, dwNumBytesToSend);
   dwNumBytesToSend = 0;
 
-  SetI2CLinesIdle();
-
   return 0;
 }
 
@@ -130,20 +104,20 @@ int SetI2CStart() {
   for(dwCount=0; dwCount < 4; dwCount++) // Repeat commands to ensure the minimum period of the start hold time is achieved
   {
     OutputBuffer[dwNumBytesToSend++] = 0x80; // Command to set ADbus direction/ data
-    OutputBuffer[dwNumBytesToSend++] = 0xFD; // Bring data out low (bit 1)
-    OutputBuffer[dwNumBytesToSend++] = 0xFB; // Set pins o/p except bit 2 (data_in)
+    OutputBuffer[dwNumBytesToSend++] = 0x03; // Bring data out low (bit 1)
+    OutputBuffer[dwNumBytesToSend++] = 0x13; // Set pins o/p except bit 2 (data_in)
   }
   for(dwCount=0; dwCount < 4; dwCount++) // Repeat commands to ensure the minimum period
     // of the start setup time is achieved
   {
     OutputBuffer[dwNumBytesToSend++] = 0x80; // Command to set ADbus direction/ data
-    OutputBuffer[dwNumBytesToSend++] = 0xFC; // Bring clock line low too
-    OutputBuffer[dwNumBytesToSend++] = 0xFB; // Set pins o/p except bit 2 (data_in)
+    OutputBuffer[dwNumBytesToSend++] = 0x01; // Bring clock line low too
+    OutputBuffer[dwNumBytesToSend++] = 0x13; // Set pins o/p except bit 2 (data_in)
   }
   // Turn the LED on by setting port AC6 low
-  OutputBuffer[dwNumBytesToSend++] = 0x82; // Command to set ACbus direction and data
-  OutputBuffer[dwNumBytesToSend++] = 0xBF; // Bit 6 is going low
-  OutputBuffer[dwNumBytesToSend++] = 0x40; // Only bit 6 is output
+  OutputBuffer[dwNumBytesToSend++] = 0x80; // Command to set ACbus direction and data
+  OutputBuffer[dwNumBytesToSend++] = 0x00; // Bit 6 is going low
+  OutputBuffer[dwNumBytesToSend++] = 0x13; // Only bit 6 is output
   //Send off the commands
   dwNumBytesSent = ftdi_write_data(&ftdic, OutputBuffer, dwNumBytesToSend);
   dwNumBytesToSend = 0;
@@ -157,25 +131,22 @@ int SetI2CStop() {
   for(dwCount=0; dwCount<4; dwCount++) // Repeat commands to ensure the minimum period of the stop setup time is achieved
   {
     OutputBuffer[dwNumBytesToSend++] = 0x80; // Command to set ADbus direction/data
-    OutputBuffer[dwNumBytesToSend++] = 0xFC; // put data and clock low
-    OutputBuffer[dwNumBytesToSend++] = 0xFB; // Set pins o/p except bit 2 (data_in)
+    OutputBuffer[dwNumBytesToSend++] = 0x01; // put data and clock low
+    OutputBuffer[dwNumBytesToSend++] = 0x13; // Set pins o/p except bit 2 (data_in)
   }
   // Clock now goes high (open drain)
   for(dwCount=0; dwCount<4; dwCount++) // Repeat commands to ensure the minimum period
     // of the stop setup time is achieved
   {
     OutputBuffer[dwNumBytesToSend++] = 0x80; // Command to set ADbus direction/data
-    OutputBuffer[dwNumBytesToSend++] = 0xFD; // put data low, clock remains high
-    OutputBuffer[dwNumBytesToSend++] = 0xFB; // Set pins o/p except bit 2 (data_in)
+    OutputBuffer[dwNumBytesToSend++] = 0x03; // put data low, clock remains high
+    OutputBuffer[dwNumBytesToSend++] = 0x13; // Set pins o/p except bit 2 (data_in)
   }
-  // Data now goes high too (both clock and data now high / open drain)
-  for(dwCount=0; dwCount<4; dwCount++) // Repeat commands to ensure the minimum period
-    // of the stop hold time is achieved
-  {
-    OutputBuffer[dwNumBytesToSend++] = 0x80; // Command to set ADbus direction/data
-    OutputBuffer[dwNumBytesToSend++] = 0xFF; // both clock and data now high
-    OutputBuffer[dwNumBytesToSend++] = 0xFB; // Set pins o/p except bit 2 (data_in)
-  }
+
+  OutputBuffer[dwNumBytesToSend++] = 0x80; // Command to set ADbus direction/data
+  OutputBuffer[dwNumBytesToSend++] = 0x00; // both clock and data now high
+  OutputBuffer[dwNumBytesToSend++] = 0x10; // Set pins o/p except bit 2 (data_in)
+
   //Send off the commands
   dwNumBytesSent = ftdi_write_data(&ftdic, OutputBuffer, dwNumBytesToSend);
   dwNumBytesToSend = 0;
@@ -183,7 +154,7 @@ int SetI2CStop() {
 }
 
 int SendByteAndCheckACK(unsigned char dataSend) {
-  dwNumBytesToSend = 0; // Clear output buffer
+  // dwNumBytesToSend = 0; // Clear output buffer
   int ftStatus = 0;
   int r;
   OutputBuffer[dwNumBytesToSend++] = 0x11; // command: clock bytes out MSB first on
@@ -193,8 +164,8 @@ int SendByteAndCheckACK(unsigned char dataSend) {
   OutputBuffer[dwNumBytesToSend++] = dataSend; // Actual byte to clock out
   // Put I2C line back to idle (during transfer) state... Clock line low, Data line high
   OutputBuffer[dwNumBytesToSend++] = 0x80; // Command to set ADbus direction/ data
-  OutputBuffer[dwNumBytesToSend++] = 0xFE; // Set the value of the pins
-  OutputBuffer[dwNumBytesToSend++] = 0xFB; // Set pins o/p except bit 2 (data_in)
+  OutputBuffer[dwNumBytesToSend++] = 0x00; // Set the value of the pins
+  OutputBuffer[dwNumBytesToSend++] = 0x11; // Set pins o/p except bit 2 (data_in)
   // AD0 (SCL) is output driven low
   // AD1 (DATA OUT) is output high (open drain)
   // AD2 (DATA IN) is input (therefore the output value specified is ignored)
@@ -222,7 +193,9 @@ int SendByteAndCheckACK(unsigned char dataSend) {
   if(debug) {
     printf("Sent: %d, %02X | Received: %d, %02X\n", dwNumBytesSent, dataSend, dwNumBytesRead, InputBuffer[0]);
   }
-
+  OutputBuffer[dwNumBytesToSend++] = 0x80; //Command to set directions of lower 8 pins and force value on bits set as output
+  OutputBuffer[dwNumBytesToSend++] = 0x02; //Set SDA high, SCL low, WP disabled by SK at bit '0', DO, GPIOL0 at bit '1'
+  OutputBuffer[dwNumBytesToSend++] = 0x13; //Set SK,DO,GPIOL0 pins as output with bit ‘1’, other pins as input with bit ‘0’
   return r;
 }
 
@@ -313,7 +286,6 @@ int main(int argc, char *argv[]) {
         printf("^====> Error data reading ACK\n");
     }
   }
-  SetI2CLinesIdle();
   SetI2CStop();
   dwNumBytesToSend = 0;
 
