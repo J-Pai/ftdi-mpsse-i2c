@@ -5,7 +5,7 @@
 struct ftdi_context ftdic;
 unsigned char OutputBuffer[1024]; // Buffer to hold MPSSE commands and data to be sent to FT4232H
 unsigned char InputBuffer[1024];  // Buffer to hold Data unsigned chars to be read from FT4232H
-unsigned int dwClockDivisor = 0x00c8; // Value of clock divisor, SCL Frequency = 60/((1+0x0032)*2) (MHz) ~= 400khz
+unsigned int dwClockDivisor = 0x00c8; // 0x00c8; // Value of clock divisor, SCL Frequency = 60/((1+0x0095)*2) (MHz) ~= 400khz
 unsigned int dwNumBytesToSend = 0; // Index of output buffer
 unsigned int dwNumBytesSent = 0, dwNumBytesRead = 0, dwNumInputBuffer = 0;
 int channel = 0;
@@ -79,19 +79,19 @@ int InitializeI2C() {
   OutputBuffer[dwNumBytesToSend++] = 0x8C; // Enable 3 phase data clocking, data valid on both clock edges for I2C
   dwNumBytesSent = ftdi_write_data(&ftdic, OutputBuffer, dwNumBytesToSend);
   dwNumBytesToSend = 0;
-  OutputBuffer[dwNumBytesToSend++] = 0x85; // Ensure internal loopback is off
   OutputBuffer[dwNumBytesToSend++] = 0x80; //Command to set directions of lower 8 pins and force value on bits set as output
   OutputBuffer[dwNumBytesToSend++] = 0x03; //Set SDA, SCL high, WP disabled by SK, DO at bit ‘1’, GPIOL0 at bit ‘0’
   OutputBuffer[dwNumBytesToSend++] = 0x13; //Set SK,DO,GPIOL0 pins as output with bit ’, other pins as input with bit ‘’
   dwNumBytesSent = ftdi_write_data(&ftdic, OutputBuffer, dwNumBytesToSend);
+  dwNumBytesToSend = 0; // Clear index to zero
+  OutputBuffer[dwNumBytesToSend++] = 0x86; // Command to set clock divisor
+  OutputBuffer[dwNumBytesToSend++] = dwClockDivisor & 0xFF; // Set 0xValueL of clock divisor
+  OutputBuffer[dwNumBytesToSend++] = (dwClockDivisor >> 8) & 0xFF; // Set 0xValueH of clock divisor
+
+  dwNumBytesSent = ftdi_write_data(&ftdic, OutputBuffer, dwNumBytesToSend);
   dwNumBytesToSend = 0;
-  // Clear index to zero
-  OutputBuffer[dwNumBytesToSend++] = 0x86;
-  // Command to set clock divisor
-  OutputBuffer[dwNumBytesToSend++] = dwClockDivisor & 0xFF;
-  // Set 0xValueL of clock divisor
-  OutputBuffer[dwNumBytesToSend++] = (dwClockDivisor >> 8) & 0xFF;
-  // Set 0xValueH of clock divisor
+  OutputBuffer[dwNumBytesToSend++] = 0x85; // Ensure internal loopback is off
+
   dwNumBytesSent = ftdi_write_data(&ftdic, OutputBuffer, dwNumBytesToSend);
   dwNumBytesToSend = 0;
 
@@ -154,9 +154,13 @@ int SetI2CStop() {
 }
 
 int SendByteAndCheckACK(unsigned char dataSend) {
-  // dwNumBytesToSend = 0; // Clear output buffer
+  dwNumBytesToSend = 0; // Clear output buffer
   int ftStatus = 0;
   int r;
+  OutputBuffer[dwNumBytesToSend++] = 0x80; //Command to set directions of lower 8 pins and force value on bits set as output
+  OutputBuffer[dwNumBytesToSend++] = 0x02; //Set SDA high, SCL low, WP disabled by SK at bit '0', DO, GPIOL0 at bit '1'
+  OutputBuffer[dwNumBytesToSend++] = 0x13; //Set SK,DO,GPIOL0 pins as output with bit ‘1’, other pins as input with bit ‘0’
+
   OutputBuffer[dwNumBytesToSend++] = 0x11; // command: clock bytes out MSB first on
   // clock falling edge
   OutputBuffer[dwNumBytesToSend++] = 0x00; //
@@ -185,17 +189,13 @@ int SendByteAndCheckACK(unsigned char dataSend) {
   if(dwNumBytesRead == 0) {
     return 0; /* Error reading bit, should not happened if we are connected to FTDI */
   } else if((InputBuffer[0] & 0x01) == 0x00) {
-    r = 1;
-    // Check ACK bit 0 on data byte read out
+    r = 1; // Check ACK bit 0 on data byte read out
   } else {
     r = 0;
   }
   if(debug) {
     printf("Sent: %d, %02X | Received: %d, %02X\n", dwNumBytesSent, dataSend, dwNumBytesRead, InputBuffer[0]);
   }
-  OutputBuffer[dwNumBytesToSend++] = 0x80; //Command to set directions of lower 8 pins and force value on bits set as output
-  OutputBuffer[dwNumBytesToSend++] = 0x02; //Set SDA high, SCL low, WP disabled by SK at bit '0', DO, GPIOL0 at bit '1'
-  OutputBuffer[dwNumBytesToSend++] = 0x13; //Set SK,DO,GPIOL0 pins as output with bit ‘1’, other pins as input with bit ‘0’
   return r;
 }
 
