@@ -54,7 +54,8 @@ int InitializeI2C() {
   ftdi_set_bitmode(&ftdic, 0xFF, BITMODE_RESET);
   ftdi_set_bitmode(&ftdic, 0xFF, BITMODE_MPSSE);
 
-  OutputBuffer[numberOfBytesToSend++] = '\xAA'; 	// Add BAD command 0xxAA
+  // Add BAD command 0xxAA. Use bad command to verify I2C bus is connected and synchronized.
+  OutputBuffer[numberOfBytesToSend++] = '\xAA';
   numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
   numberOfBytesToSend = 0;
   i = 0;
@@ -85,22 +86,34 @@ int InitializeI2C() {
   }
 
   numberOfBytesToSend = 0;
+  // MPSSE command for disabling clock divide by 5 for 60 MHz master clock.
   OutputBuffer[numberOfBytesToSend++] = 0x8A;
+  // MPSSE command for turning off adaptive clocking.
   OutputBuffer[numberOfBytesToSend++] = 0x97;
+  // Enable 3 phase data clock. Enables I2C bus to clock data on both clock edges.
   OutputBuffer[numberOfBytesToSend++] = 0x8C;
   numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
   numberOfBytesToSend = 0;
+  // Set the direction of the lower 8 pins. Force value on bits set as output.
   OutputBuffer[numberOfBytesToSend++] = 0x80;
+  // Set SDA and SCL high. Write Protection disabled by SK and DO at bit 1. GPIOL0 at bit 0.
   OutputBuffer[numberOfBytesToSend++] = 0x03;
+  // Set SK, DO, GPIOL0 pins as output with bit 1 other pins as input with bit 0.
   OutputBuffer[numberOfBytesToSend++] = 0x13;
   numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
   numberOfBytesToSend = 0;
+  // SK frequency = 60MHz /((1 + [(1 + 0xValueH*256) | 0xValueL])*2)
+  // MPSSE command to set clock divisor.
   OutputBuffer[numberOfBytesToSend++] = 0x86;
+  // Set 0xValueL of clock divisor
   OutputBuffer[numberOfBytesToSend++] = kClockDivisor & 0xFF;
+  // Set 0xValueH of clock divisor
   OutputBuffer[numberOfBytesToSend++] = (kClockDivisor >> 8) & 0xFF;
 
   numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
   numberOfBytesToSend = 0;
+
+  // Turn off loop back of TDI/TDO connection.
   OutputBuffer[numberOfBytesToSend++] = 0x85;
 
   numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
