@@ -1,5 +1,8 @@
 # FTDI MPSSE I2C
 
+## Sample Circuit
+![I2C Circuit](./blinkm_ftdi_bb.png)
+
 ## Installation
 
 ```
@@ -7,7 +10,6 @@ $ sudo apt install libftdi-dev
 $ make
 $ ./i2c
 ```
-
 
 ## Credits
 
