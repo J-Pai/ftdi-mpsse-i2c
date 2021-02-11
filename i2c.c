@@ -145,9 +145,6 @@ int SetI2CStart() {
 int SetI2CStop() {
   numberOfBytesToSend = 0;
   int count;
-  OutputBuffer[numberOfBytesToSend++] = 0x80;
-  OutputBuffer[numberOfBytesToSend++] = 0x02;
-  OutputBuffer[numberOfBytesToSend++] = 0x13;
 
   for(count=0; count<4; count++) {
     OutputBuffer[numberOfBytesToSend++] = 0x80;
@@ -177,6 +174,8 @@ int SendByteAndCheckACK(unsigned char dataSend) {
   OutputBuffer[numberOfBytesToSend++] = 0x80;
   OutputBuffer[numberOfBytesToSend++] = 0x02;
   OutputBuffer[numberOfBytesToSend++] = 0x13;
+  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
+  numberOfBytesToSend = 0;
 
   OutputBuffer[numberOfBytesToSend++] = 0x11;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
