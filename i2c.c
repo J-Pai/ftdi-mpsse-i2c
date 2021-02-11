@@ -52,6 +52,37 @@ int InitializeI2C() {
   ftdi_set_bitmode(&ftdic, 0xFF, BITMODE_RESET);
   ftdi_set_bitmode(&ftdic, 0xFF, BITMODE_MPSSE);
 
+  // Add BAD command 0xxAA. Use bad command to verify I2C bus is connected and synchronized.
+  // OutputBuffer[numberOfBytesToSend++] = '\xAA';
+  // numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
+  // numberOfBytesToSend = 0;
+  // i = 0;
+  // do {
+  //   numberOfBytesRead = ftdi_read_data(&ftdic, InputBuffer, 2);
+  //   if(numberOfBytesRead < 0) {
+  //     if(debug)
+  //       printf("Error: %s\n", ftdi_get_error_string(&ftdic));
+  //     break;
+  //   }
+  //   if(debug) {
+  //     printf("Got %d bytes %02X %02X\n", numberOfBytesRead, InputBuffer[0], InputBuffer[1]);
+  //   }
+  //   if(++i > 5) {
+  //     break;
+  //   }
+  // } while (numberOfBytesRead == 0);
+  // for (count = 0; count < numberOfBytesRead; count++) {
+  //   if ((InputBuffer[count] == 0xFA) && (InputBuffer[count+1] == 0xAA)) {
+  //     if(debug)
+  //       printf("FTDI synchronized\n");
+  //     commandEchoed = 1;
+  //     break;
+  //   }
+  // }
+  // if (commandEchoed == 0) {
+  //   return 1;
+  // }
+
   numberOfBytesToSend = 0;
   // MPSSE command for disabling clock divide by 5 for 60 MHz master clock.
   OutputBuffer[numberOfBytesToSend++] = 0x8A;
