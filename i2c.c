@@ -145,6 +145,10 @@ int SetI2CStart() {
 int SetI2CStop() {
   numberOfBytesToSend = 0;
   int count;
+  OutputBuffer[numberOfBytesToSend++] = 0x80;
+  OutputBuffer[numberOfBytesToSend++] = 0x02;
+  OutputBuffer[numberOfBytesToSend++] = 0x13;
+
   for(count=0; count<4; count++) {
     OutputBuffer[numberOfBytesToSend++] = 0x80;
     OutputBuffer[numberOfBytesToSend++] = 0x01;
