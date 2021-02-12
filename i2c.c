@@ -351,6 +351,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  unsigned char returned_data[read];
   if (read > 0) {
     for (i = 0; i < read; i++) {
       SetI2CStart();
@@ -371,7 +372,11 @@ int main(int argc, char *argv[]) {
         printf("^====> Error Reading Byte \n");
       } else {
         printf("read[%d]: %02X\n", i, read_byte);
+        returned_data[i] = read_byte;
       }
+    }
+    for (int i = 0; i < read; i++) {
+      printf("returned_data[%d]: %02X\n", i, returned_data[i]);
     }
   }
 
