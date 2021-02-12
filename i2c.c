@@ -10,7 +10,7 @@ unsigned char OutputBuffer[1024];
 unsigned char InputBuffer[1024];
 // Value of clock divisor, SCL Frequency = 60MHz/(((1+0x012F)*2) ~= 100KHz
 // Tested divisor: 0x0383 ~= 666.66KHz
-const uint32_t kClockDivisor = 0x012F;
+const uint32_t kClockDivisor = 0x0383;
 // Default number of times to repeat commands for hold times.
 const uint8_t kDefaultRepeat = 4;
 // Index of output buffer
@@ -56,35 +56,35 @@ int InitializeI2C() {
   ftdi_set_bitmode(&ftdic, 0xFF, BITMODE_MPSSE);
 
   // Add BAD command 0xxAA. Use bad command to verify I2C bus is connected and synchronized.
-  // OutputBuffer[numberOfBytesToSend++] = '\xAA';
-  // numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
-  // numberOfBytesToSend = 0;
-  // i = 0;
-  // do {
-  //   numberOfBytesRead = ftdi_read_data(&ftdic, InputBuffer, 2);
-  //   if(numberOfBytesRead < 0) {
-  //     if(debug)
-  //       printf("Error: %s\n", ftdi_get_error_string(&ftdic));
-  //     break;
-  //   }
-  //   if(debug) {
-  //     printf("Got %d bytes %02X %02X\n", numberOfBytesRead, InputBuffer[0], InputBuffer[1]);
-  //   }
-  //   if(++i > 5) {
-  //     break;
-  //   }
-  // } while (numberOfBytesRead == 0);
-  // for (count = 0; count < numberOfBytesRead; count++) {
-  //   if ((InputBuffer[count] == 0xFA) && (InputBuffer[count+1] == 0xAA)) {
-  //     if(debug)
-  //       printf("FTDI synchronized\n");
-  //     commandEchoed = 1;
-  //     break;
-  //   }
-  // }
-  // if (commandEchoed == 0) {
-  //   return 1;
-  // }
+  OutputBuffer[numberOfBytesToSend++] = '\xAA';
+  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
+  numberOfBytesToSend = 0;
+  i = 0;
+  do {
+    numberOfBytesRead = ftdi_read_data(&ftdic, InputBuffer, 2);
+    if(numberOfBytesRead < 0) {
+      if(debug)
+        printf("Error: %s\n", ftdi_get_error_string(&ftdic));
+      break;
+    }
+    if(debug) {
+      printf("Got %d bytes %02X %02X\n", numberOfBytesRead, InputBuffer[0], InputBuffer[1]);
+    }
+    if(++i > 5) {
+      break;
+    }
+  } while (numberOfBytesRead == 0);
+  for (count = 0; count < numberOfBytesRead; count++) {
+    if ((InputBuffer[count] == 0xFA) && (InputBuffer[count+1] == 0xAA)) {
+      if(debug)
+        printf("FTDI synchronized\n");
+      commandEchoed = 1;
+      break;
+    }
+  }
+  if (commandEchoed == 0) {
+    return 1;
+  }
 
   numberOfBytesToSend = 0;
   // MPSSE command for disabling clock divide by 5 for 60 MHz master clock.
@@ -173,6 +173,12 @@ int SetI2CStop() {
 int SendByteAndCheckACK(unsigned char data) {
   numberOfBytesToSend = 0;
 
+  OutputBuffer[numberOfBytesToSend++] = 0x80;
+  OutputBuffer[numberOfBytesToSend++] = 0x02;
+  OutputBuffer[numberOfBytesToSend++] = 0x13;
+  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
+  numberOfBytesToSend = 0;
+
   OutputBuffer[numberOfBytesToSend++] = 0x11;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
@@ -184,12 +190,13 @@ int SendByteAndCheckACK(unsigned char data) {
   OutputBuffer[numberOfBytesToSend++] = 0x22;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
   OutputBuffer[numberOfBytesToSend++] = 0x87;
+
   numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
   numberOfBytesToSend = 0;
 
   numberOfBytesRead = ftdi_read_data(&ftdic, InputBuffer, 1);
   int status;
-  if(numberOfBytesRead == 0) {
+  if(numberOfBytesRead != 1) {
     return 0;
   } else if((InputBuffer[0] & 0x01) == 0x00) {
     status = 1;
@@ -212,9 +219,17 @@ int SendByteAndCheckACK(unsigned char data) {
 
 int ReadByte() {
   numberOfBytesToSend = 0;
+
+  OutputBuffer[numberOfBytesToSend++] = 0x80;
+  OutputBuffer[numberOfBytesToSend++] = 0x02;
+  OutputBuffer[numberOfBytesToSend++] = 0x13;
+  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
+  numberOfBytesToSend = 0;
+
   OutputBuffer[numberOfBytesToSend++] = 0x80;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
   OutputBuffer[numberOfBytesToSend++] = 0x11;
+
   OutputBuffer[numberOfBytesToSend++] = 0x24;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
@@ -222,18 +237,25 @@ int ReadByte() {
   OutputBuffer[numberOfBytesToSend++] = 0x22;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
   OutputBuffer[numberOfBytesToSend++] = 0x87;
+
+  for (int i = 0; i < numberOfBytesToSend; i++) {
+    printf("--> Sent[%d]: %02X\n", i, OutputBuffer[i]);
+  }
   numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
   numberOfBytesToSend = 0;
 
   numberOfBytesRead = ftdi_read_data(&ftdic, InputBuffer, 2);
   int status;
   unsigned char read_byte = InputBuffer[0];
-  printf("--> Received: %02X\n", InputBuffer[0]);
-  if(numberOfBytesRead < 2) {
+  for (int i = 0; i < numberOfBytesRead; i++) {
+    printf("--> Received[%d]: %02X\n", i, InputBuffer[i]);
+  }
+  if(numberOfBytesRead != 2) {
     return -1;
   } else if((InputBuffer[1] & 0x01) != 0x00) {
     return -1;
   }
+
   OutputBuffer[numberOfBytesToSend++] = 0x80;
   OutputBuffer[numberOfBytesToSend++] = 0x02;
   OutputBuffer[numberOfBytesToSend++] = 0x13;
@@ -302,6 +324,11 @@ int main(int argc, char *argv[]) {
     }
     ++arg;
   }
+
+  if (read) {
+    printf("=== DOING READ ===\n");
+  }
+
   // R/W bit should be 0
   unsigned char address = byte << 1;
   if(debug)
@@ -337,8 +364,9 @@ int main(int argc, char *argv[]) {
       }
       ++arg;
     }
-    if(debug)
+    if(debug) {
       printf("Sending data %02X\n", byte);
+    }
     status = SendByteAndCheckACK((unsigned char) byte);
     if(debug) {
       if(status) {
@@ -349,13 +377,14 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (status && read > 0) {
+  if (read > 0) {
     for (i = 0; i < read; i++) {
       SetI2CStart();
       address = address | 0x01;
-      if(debug)
+      if(debug) {
         printf("Sending Read Address %02X\n", address);
-      int status = SendByteAndCheckACK(address);
+      }
+      status = SendByteAndCheckACK(address);
       if(debug) {
         if(status) {
           printf("Received Read Address ACK\n");
@@ -369,11 +398,10 @@ int main(int argc, char *argv[]) {
       } else {
         printf("read[%d]: %02X\n", i, read_byte);
       }
-      SetI2CStop();
     }
-  } else {
-    SetI2CStop();
   }
+
+  SetI2CStop();
 
   numberOfBytesToSend = 0;
   ftdi_usb_close(&ftdic);
