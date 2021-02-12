@@ -8,8 +8,9 @@ struct ftdi_context ftdic;
 unsigned char OutputBuffer[1024];
 // Buffer to hold Data unsigned chars to be read from FT4232H
 unsigned char InputBuffer[1024];
-// Value of clock divisor, SCL Frequency = 60MHz/(((1+0x012C)*2) ~= 100KHz
-const uint32_t kClockDivisor = 0x0383;
+// Value of clock divisor, SCL Frequency = 60MHz/(((1+0x012F)*2) ~= 100KHz
+// Tested divisor: 0x0383 ~= 666.66KHz
+const uint32_t kClockDivisor = 0x012F;
 // Default number of times to repeat commands for hold times.
 const uint8_t kDefaultRepeat = 4;
 // Index of output buffer
