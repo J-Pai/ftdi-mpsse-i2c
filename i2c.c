@@ -173,12 +173,6 @@ int SetI2CStop() {
 int SendByteAndCheckACK(unsigned char data) {
   numberOfBytesToSend = 0;
 
-  OutputBuffer[numberOfBytesToSend++] = 0x80;
-  OutputBuffer[numberOfBytesToSend++] = 0x02;
-  OutputBuffer[numberOfBytesToSend++] = 0x13;
-  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
-  numberOfBytesToSend = 0;
-
   OutputBuffer[numberOfBytesToSend++] = 0x11;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
@@ -221,12 +215,6 @@ int ReadByte() {
   numberOfBytesToSend = 0;
 
   OutputBuffer[numberOfBytesToSend++] = 0x80;
-  OutputBuffer[numberOfBytesToSend++] = 0x02;
-  OutputBuffer[numberOfBytesToSend++] = 0x13;
-  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
-  numberOfBytesToSend = 0;
-
-  OutputBuffer[numberOfBytesToSend++] = 0x80;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
   OutputBuffer[numberOfBytesToSend++] = 0x11;
 
@@ -238,29 +226,15 @@ int ReadByte() {
   OutputBuffer[numberOfBytesToSend++] = 0x00;
   OutputBuffer[numberOfBytesToSend++] = 0x87;
 
-  for (int i = 0; i < numberOfBytesToSend; i++) {
-    printf("--> Sent[%d]: %02X\n", i, OutputBuffer[i]);
-  }
   numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
   numberOfBytesToSend = 0;
 
   numberOfBytesRead = ftdi_read_data(&ftdic, InputBuffer, 2);
   int status;
   unsigned char read_byte = InputBuffer[0];
-  for (int i = 0; i < numberOfBytesRead; i++) {
-    printf("--> Received[%d]: %02X\n", i, InputBuffer[i]);
-  }
   if(numberOfBytesRead != 2) {
     return -1;
-  } else if((InputBuffer[1] & 0x01) != 0x00) {
-    return -1;
   }
-
-  OutputBuffer[numberOfBytesToSend++] = 0x80;
-  OutputBuffer[numberOfBytesToSend++] = 0x02;
-  OutputBuffer[numberOfBytesToSend++] = 0x13;
-  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
-  numberOfBytesToSend = 0;
 
   return read_byte;
 }
