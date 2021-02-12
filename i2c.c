@@ -170,22 +170,13 @@ int SetI2CStop() {
   return 0;
 }
 
-int SendByteAndCheckACK(unsigned char dataSend) {
-  numberOfBytesToSend = 0;
-  int ftStatus = 0;
-  int r;
-  // for (int count = 0; count < kDefaultRepeat; ++count) {
-    OutputBuffer[numberOfBytesToSend++] = 0x80;
-    OutputBuffer[numberOfBytesToSend++] = 0x02;
-    OutputBuffer[numberOfBytesToSend++] = 0x13;
-  // }
-  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
+int SendByteAndCheckACK(unsigned char data) {
   numberOfBytesToSend = 0;
 
   OutputBuffer[numberOfBytesToSend++] = 0x11;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
-  OutputBuffer[numberOfBytesToSend++] = dataSend;
+  OutputBuffer[numberOfBytesToSend++] = data;
   OutputBuffer[numberOfBytesToSend++] = 0x80;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
   OutputBuffer[numberOfBytesToSend++] = 0x11;
@@ -197,109 +188,194 @@ int SendByteAndCheckACK(unsigned char dataSend) {
   numberOfBytesToSend = 0;
 
   numberOfBytesRead = ftdi_read_data(&ftdic, InputBuffer, 1);
+  int status;
   if(numberOfBytesRead == 0) {
     return 0;
   } else if((InputBuffer[0] & 0x01) == 0x00) {
-    r = 1;
+    status = 1;
   } else {
-    r = 0;
+    status = 0;
   }
   if(debug) {
-    printf("Sent: %d, %02X | Received: %d, %02X\n", numberOfBytesSent, dataSend, numberOfBytesRead, InputBuffer[0]);
+    printf("Sent: %d, %02X | Received: %d, %02X\n", numberOfBytesSent, data,
+        numberOfBytesRead, InputBuffer[0]);
   }
-  return r;
+
+  OutputBuffer[numberOfBytesToSend++] = 0x80;
+  OutputBuffer[numberOfBytesToSend++] = 0x02;
+  OutputBuffer[numberOfBytesToSend++] = 0x13;
+  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
+  numberOfBytesToSend = 0;
+
+  return status;
+}
+
+int ReadByte() {
+  numberOfBytesToSend = 0;
+  OutputBuffer[numberOfBytesToSend++] = 0x80;
+  OutputBuffer[numberOfBytesToSend++] = 0x00;
+  OutputBuffer[numberOfBytesToSend++] = 0x11;
+  OutputBuffer[numberOfBytesToSend++] = 0x24;
+  OutputBuffer[numberOfBytesToSend++] = 0x00;
+  OutputBuffer[numberOfBytesToSend++] = 0x00;
+
+  OutputBuffer[numberOfBytesToSend++] = 0x22;
+  OutputBuffer[numberOfBytesToSend++] = 0x00;
+  OutputBuffer[numberOfBytesToSend++] = 0x87;
+  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
+  numberOfBytesToSend = 0;
+
+  numberOfBytesRead = ftdi_read_data(&ftdic, InputBuffer, 2);
+  int status;
+  unsigned char read_byte = InputBuffer[0];
+  printf("--> Received: %02X\n", InputBuffer[0]);
+  if(numberOfBytesRead < 2) {
+    return -1;
+  } else if((InputBuffer[1] & 0x01) != 0x00) {
+    return -1;
+  }
+  OutputBuffer[numberOfBytesToSend++] = 0x80;
+  OutputBuffer[numberOfBytesToSend++] = 0x02;
+  OutputBuffer[numberOfBytesToSend++] = 0x13;
+  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
+  numberOfBytesToSend = 0;
+
+  return read_byte;
+}
+
+void PrintHelp() {
+  printf("i2c: Send/Read data over i2c bus using FTDI F4232H port 0 I2C\n");
+  printf("usage: i2c [-c <channel>] [-r <bytes>] [<address> <data>]\n");
 }
 
 int main(int argc, char *argv[]) {
-  int i, a;
-  char *s, *serial;
-  int b = 0;
+  int i, arg_index;
+  char *arg, *serial;
+  int byte = 0;
+  int read = 0;
 
   if(argc < 2) {
-    printf("i2c: Send/Read data over i2c bus using FTDI F4232H port 0 I2C\n");
-    printf("usage: i2c [-c <channel>] [<address> <data>]\n");
+    PrintHelp();
     return 1;
   }
-  for(a = 1; a < argc; a++) {
-    s = argv[a];
-    if(*s == '-') {	/* This is a command line option */
-      s++;
-      a++;
-      if(*s == 'c')
-        channel = atoi(argv[a]);
-      else {
-        printf("Unknown option -%c\n", *s);
+  for(arg_index = 1; arg_index < argc; ++arg_index) {
+    arg = argv[arg_index];
+    // If arg starts with '-', it is a commandline option.
+    if(*arg == '-') {
+      ++arg;
+      ++arg_index;
+      if(*arg == 'c') {
+        channel = atoi(argv[arg_index]);
+      } else if (*arg == 'r') {
+        read = atoi(argv[arg_index]);
+      } else {
+        printf("Unknown option -%c\n", *arg);
+        PrintHelp();
         return -1;
       }
-    }
-    else
+    } else {
       break;
+    }
   }
+
   InitializeI2C();
   SetI2CStart();
-  s = argv[a];
-  b = 0;
-  if(*s == '0')
-    s++;
-  if(*s == 'x')
-    s++;
-  while(*s) {
-    if(!isxdigit(*s)) {
-      printf("%c Invalid hex value: %s\n", *s, argv[i]);
+  arg = argv[arg_index];
+  byte = 0;
+  if(*arg == '0') {
+    ++arg;
+  }
+  if(*arg == 'x') {
+    ++arg;
+  }
+  while(*arg) {
+    if(!isxdigit(*arg)) {
+      printf("%c Invalid hex value: %s\n", *arg, argv[i]);
       break;
     }
-    b *= 16;
-    *s = toupper(*s);
-    if(*s >= 'A')
-      b += (*s - 'A' + 10);
-    else
-      b += (*s - '0');
-    s++;
+    byte *= 16;
+    *arg = toupper(*arg);
+    if(*arg >= 'A') {
+      byte += (*arg - 'A' + 10);
+    } else {
+      byte += (*arg - '0');
+    }
+    ++arg;
   }
   // R/W bit should be 0
-  b = b << 1;
+  unsigned char address = byte << 1;
   if(debug)
-    printf("Sending Address %02X\n", b);
-  b = SendByteAndCheckACK((unsigned char)b);
+    printf("Sending Address %02X\n", address);
+  int status = SendByteAndCheckACK(address);
   if(debug) {
-    if(b)
+    if(status) {
       printf("Received Address ACK\n");
-    else
+    } else {
       printf("^====> Error Address reading ACK\n");
+    }
   }
-  for(i = a + 1; i < argc; i++) {
-    s = argv[i];
-    b = 0;
-    if(*s == '0')
-      s++;
-    if(*s == 'x')
-      s++;
-    while(*s) {
-      if(!isxdigit(*s)) {
-        printf("%c Invalid hex value: %s\n", *s, argv[i]);
+  for(i = arg_index + 1; i < argc; ++i) {
+    arg = argv[i];
+    byte = 0;
+    if(*arg == '0') {
+      ++arg;
+    }
+    if(*arg == 'x') {
+      ++arg;
+    }
+    while(*arg) {
+      if(!isxdigit(*arg)) {
+        printf("%c Invalid hex value: %s\n", *arg, argv[i]);
         break;
       }
-      b *= 16;
-      *s = toupper(*s);
-      if(*s >= 'A')
-        b += (*s - 'A' + 10);
-      else
-        b += (*s - '0');
-      s++;
+      byte *= 16;
+      *arg = toupper(*arg);
+      if(*arg >= 'A') {
+        byte += (*arg - 'A' + 10);
+      } else {
+        byte += (*arg - '0');
+      }
+      ++arg;
     }
     if(debug)
-      printf("Sending data %02X\n", b);
-    b = SendByteAndCheckACK((unsigned char)b);
+      printf("Sending data %02X\n", byte);
+    status = SendByteAndCheckACK((unsigned char) byte);
     if(debug) {
-      if(b)
+      if(status) {
         printf("Received data ACK\n");
-      else
+      } else {
         printf("^====> Error data reading ACK\n");
+      }
     }
   }
-  SetI2CStop();
-  numberOfBytesToSend = 0;
 
+  if (status && read > 0) {
+    for (i = 0; i < read; i++) {
+      SetI2CStart();
+      address = address | 0x01;
+      if(debug)
+        printf("Sending Read Address %02X\n", address);
+      int status = SendByteAndCheckACK(address);
+      if(debug) {
+        if(status) {
+          printf("Received Read Address ACK\n");
+        } else {
+          printf("^====> Error Read Address reading ACK\n");
+        }
+      }
+      int read_byte = ReadByte();
+      if (read_byte < 0) {
+        printf("^====> Error Reading Byte \n");
+      } else {
+        printf("read[%d]: %02X\n", i, read_byte);
+      }
+      SetI2CStop();
+    }
+  } else {
+    SetI2CStop();
+  }
+
+  numberOfBytesToSend = 0;
   ftdi_usb_close(&ftdic);
   ftdi_deinit(&ftdic);
   return 0;
