@@ -9,7 +9,9 @@ unsigned char OutputBuffer[1024];
 // Buffer to hold Data unsigned chars to be read from FT4232H
 unsigned char InputBuffer[1024];
 // Value of clock divisor, SCL Frequency = 60MHz/(((1+0x012C)*2) ~= 100KHz
-const uint32_t kClockDivisor = 0x012C;
+const uint32_t kClockDivisor = 0x0130;
+// Default number of times to repeat commands for hold times.
+const uint8_t kDefaultRepeat = 4;
 // Index of output buffer
 uint16_t numberOfBytesToSend = 0;
 // Bytes sent
@@ -123,12 +125,12 @@ int InitializeI2C() {
 int SetI2CStart() {
   numberOfBytesToSend = 0;
   int count;
-  for(count=0; count < 4; count++) {
+  for(count = 0; count < kDefaultRepeat; ++count) {
     OutputBuffer[numberOfBytesToSend++] = 0x80;
     OutputBuffer[numberOfBytesToSend++] = 0x03;
     OutputBuffer[numberOfBytesToSend++] = 0x13;
   }
-  for(count=0; count < 4; count++) {
+  for(count = 0; count < kDefaultRepeat; ++count) {
     OutputBuffer[numberOfBytesToSend++] = 0x80;
     OutputBuffer[numberOfBytesToSend++] = 0x01;
     OutputBuffer[numberOfBytesToSend++] = 0x13;
@@ -146,12 +148,12 @@ int SetI2CStop() {
   numberOfBytesToSend = 0;
   int count;
 
-  for(count=0; count<4; count++) {
+  for(count = 0; count < kDefaultRepeat; ++count) {
     OutputBuffer[numberOfBytesToSend++] = 0x80;
     OutputBuffer[numberOfBytesToSend++] = 0x01;
     OutputBuffer[numberOfBytesToSend++] = 0x13;
   }
-  for(count=0; count<4; count++) {
+  for(count = 0; count < kDefaultRepeat; ++count) {
     OutputBuffer[numberOfBytesToSend++] = 0x80;
     OutputBuffer[numberOfBytesToSend++] = 0x03;
     OutputBuffer[numberOfBytesToSend++] = 0x13;
@@ -171,9 +173,11 @@ int SendByteAndCheckACK(unsigned char dataSend) {
   numberOfBytesToSend = 0;
   int ftStatus = 0;
   int r;
-  OutputBuffer[numberOfBytesToSend++] = 0x80;
-  OutputBuffer[numberOfBytesToSend++] = 0x02;
-  OutputBuffer[numberOfBytesToSend++] = 0x13;
+  // for (int count = 0; count < kDefaultRepeat; ++count) {
+    OutputBuffer[numberOfBytesToSend++] = 0x80;
+    OutputBuffer[numberOfBytesToSend++] = 0x02;
+    OutputBuffer[numberOfBytesToSend++] = 0x13;
+  // }
   numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
   numberOfBytesToSend = 0;
 
