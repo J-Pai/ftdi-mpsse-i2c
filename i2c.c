@@ -175,6 +175,12 @@ int SetI2CStop() {
 int SendByteAndCheckACK(unsigned char data) {
   numberOfBytesToSend = 0;
 
+  OutputBuffer[numberOfBytesToSend++] = 0x80;
+  OutputBuffer[numberOfBytesToSend++] = 0x02;
+  OutputBuffer[numberOfBytesToSend++] = 0x13;
+  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
+  numberOfBytesToSend = 0;
+
   OutputBuffer[numberOfBytesToSend++] = 0x11;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
