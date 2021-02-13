@@ -239,6 +239,8 @@ int ReadByte() {
   numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
   numberOfBytesToSend = 0;
 
+  usleep(1);
+
   numberOfBytesRead = ftdi_read_data(&ftdic, InputBuffer, 2);
   int status;
   unsigned char read_byte = InputBuffer[0];
