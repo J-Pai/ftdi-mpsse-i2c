@@ -196,6 +196,8 @@ int SendByteAndCheckACK(unsigned char data) {
   numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
   numberOfBytesToSend = 0;
 
+  usleep(1);
+
   numberOfBytesRead = ftdi_read_data(&ftdic, InputBuffer, 1);
   int status;
   if(numberOfBytesRead != 1) {
