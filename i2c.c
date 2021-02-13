@@ -56,6 +56,7 @@ int InitializeI2C() {
   ftdi_set_bitmode(&ftdic, 0xFF, BITMODE_MPSSE);
 
   // Add BAD command 0xxAA. Use bad command to verify I2C bus is connected and synchronized.
+  /*
   OutputBuffer[numberOfBytesToSend++] = '\xAA';
   numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
   numberOfBytesToSend = 0;
@@ -85,6 +86,7 @@ int InitializeI2C() {
   if (commandEchoed == 0) {
     return 1;
   }
+  */
 
   numberOfBytesToSend = 0;
   // MPSSE command for disabling clock divide by 5 for 60 MHz master clock.
