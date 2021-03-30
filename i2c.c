@@ -9,7 +9,7 @@ unsigned char OutputBuffer[1024];
 // Buffer to hold Data unsigned chars to be read from FT4232H
 unsigned char InputBuffer[1024];
 // Value of clock divisor, SCL Frequency = 60MHz/((1+0x0383)*2) = 33KHz
-const uint32_t kClockDivisor = 0x0383;
+const uint16_t kClockDivisor = 0x0200;
 // Default number of times to repeat commands for hold times.
 const uint8_t kDefaultRepeat = 4;
 // Index of output buffer
@@ -19,7 +19,7 @@ uint16_t numberOfBytesSent = 0;
 // Bytes read
 uint16_t numberOfBytesRead = 0;
 // FTDI Channel
-uint8_t channel = 0;
+uint8_t channel = 1;
 // Debug toggle
 uint8_t debug = 1;
 
@@ -47,45 +47,22 @@ int InitializeI2C() {
   if(debug)
     printf("Port opened, resetting device...\n");
 
+  // ftStatus |= ftdi_set_baudrate(&ftdic, 115200);
+
   ftStatus |= ftdi_usb_reset(&ftdic);
   ftStatus |= ftdi_usb_purge_rx_buffer(&ftdic);
   ftStatus |= ftdi_usb_purge_tx_buffer(&ftdic);
+  ftStatus |= ftdi_read_data_set_chunksize(&ftdic, 65536);
+  ftStatus |= ftdi_write_data_set_chunksize(&ftdic, 65536);
+  ftStatus |= ftdi_set_latency_timer(&ftdic, 16);
+
+  if (ftStatus != 0) {
+    printf("Issues setting up FTDI: %s\n", ftdi_get_error_string(&ftdic));
+  }
+
 
   ftdi_set_bitmode(&ftdic, 0xFF, BITMODE_RESET);
   ftdi_set_bitmode(&ftdic, 0xFF, BITMODE_MPSSE);
-
-  // Add BAD command 0xxAA. Use bad command to verify I2C bus is connected and synchronized.
-  /*
-  OutputBuffer[numberOfBytesToSend++] = '\xAA';
-  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
-  numberOfBytesToSend = 0;
-  i = 0;
-  do {
-    numberOfBytesRead = ftdi_read_data(&ftdic, InputBuffer, 2);
-    if(numberOfBytesRead < 0) {
-      if(debug)
-        printf("Error: %s\n", ftdi_get_error_string(&ftdic));
-      break;
-    }
-    if(debug) {
-      printf("Got %d bytes %02X %02X\n", numberOfBytesRead, InputBuffer[0], InputBuffer[1]);
-    }
-    if(++i > 5) {
-      break;
-    }
-  } while (numberOfBytesRead == 0);
-  for (count = 0; count < numberOfBytesRead; count++) {
-    if ((InputBuffer[count] == 0xFA) && (InputBuffer[count+1] == 0xAA)) {
-      if(debug)
-        printf("FTDI synchronized\n");
-      commandEchoed = 1;
-      break;
-    }
-  }
-  if (commandEchoed == 0) {
-    return 1;
-  }
-  */
 
   numberOfBytesToSend = 0;
   // MPSSE command for disabling clock divide by 5 for 60 MHz master clock.
@@ -172,13 +149,7 @@ int SetI2CStop() {
 }
 
 int SendByteAndCheckACK(unsigned char data) {
-  numberOfBytesToSend = 0;
-
-  OutputBuffer[numberOfBytesToSend++] = 0x80;
-  OutputBuffer[numberOfBytesToSend++] = 0x02;
-  OutputBuffer[numberOfBytesToSend++] = 0x13;
-  numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
-  numberOfBytesToSend = 0;
+  // numberOfBytesToSend = 0;
 
   OutputBuffer[numberOfBytesToSend++] = 0x11;
   OutputBuffer[numberOfBytesToSend++] = 0x00;
@@ -195,13 +166,9 @@ int SendByteAndCheckACK(unsigned char data) {
   numberOfBytesSent = ftdi_write_data(&ftdic, OutputBuffer, numberOfBytesToSend);
   numberOfBytesToSend = 0;
 
-  usleep(1);
-
   numberOfBytesRead = ftdi_read_data(&ftdic, InputBuffer, 1);
   int status;
-  if(numberOfBytesRead != 1) {
-    return 0;
-  } else if((InputBuffer[0] & 0x01) == 0x00) {
+  if((InputBuffer[0] & 0x01) == 0x00) {
     status = 1;
   } else {
     status = 0;
@@ -326,6 +293,12 @@ int main(int argc, char *argv[]) {
       printf("^====> Error Address reading ACK\n");
     }
   }
+
+  if (status == 0) {
+    SetI2CStop();
+    return status;
+  }
+
   for(i = arg_index + 1; i < argc; ++i) {
     arg = argv[i];
     byte = 0;
